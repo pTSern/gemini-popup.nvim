@@ -39,21 +39,19 @@ local M = {
             },
             next = { 
                 { 
-                    key = "<Tab>k", 
-                    mode = { 'n', 'v' }, 
+                    -- Removed global 'key' to avoid conflicts with BarBar
                     desc = "Next Gemini Popup",
                     buffer = {
-                        { key = "<Tab>k", mode = { 'n', 'v' } }
+                        { key = "<Tab>k", mode = { 'n', 'v', 't' } }
                     }
                 } 
             },
             prev = { 
                 { 
-                    key = "<Tab>j", 
-                    mode = { 'n', 'v' }, 
+                    -- Removed global 'key' to avoid conflicts with BarBar
                     desc = "Prev Gemini Popup",
                     buffer = {
-                        { key = "<Tab>j", mode = { 'n', 'v' } }
+                        { key = "<Tab>j", mode = { 'n', 'v', 't' } }
                     }
                 } 
             },
@@ -284,7 +282,6 @@ function M.input_new_path()
 end
 
 function M.setup(user_config)
-    -- If flush_keybind is true in user_config, empty the default mappings first
     if user_config and user_config.flush_keybind then
         M.state.config.toggle = {}
         M.state.config.kill = {}
@@ -297,7 +294,9 @@ function M.setup(user_config)
 
     local function register_global(binds, callback)
         for _, bind in ipairs(binds) do
-            vim.keymap.set(bind.mode or { 'n' }, bind.key, callback, { desc = bind.desc, silent = true })
+            if bind.key then
+                vim.keymap.set(bind.mode or { 'n' }, bind.key, callback, { desc = bind.desc, silent = true })
+            end
         end
     end
 
