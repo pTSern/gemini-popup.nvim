@@ -7,8 +7,20 @@ local M = {
                 horizontal = 0.8,
                 vertical = 0.8,
             },
-            toggle = {},
-            kill = {},
+            toggle = {
+                {
+                    key = "<Leader>gm",
+                    mode = { 'n', 'v', 't' },
+                    desc = "Toggle [G]e[M]ini CLI popup"
+                },
+            },
+            kill = {
+                {
+                    key = "<Leader>gk",
+                    mode = { "n", "v", "t" },
+                    desc = "[G]emini Popup will be [K]illed"
+                }
+            }
         }
     }
 }
@@ -67,15 +79,8 @@ function M.kill_gemini_cli()
 end
 
 function M.setup(user_config)
-    -- Merge config
-    if user_config then
-        if user_config.size then
-            M.state.config.size.horizontal = user_config.size.horizontal or M.state.config.size.horizontal
-            M.state.config.size.vertical = user_config.size.vertical or M.state.config.size.vertical
-        end
-        M.state.config.toggle = user_config.toggle or M.state.config.toggle
-        M.state.config.kill = user_config.kill or M.state.config.kill
-    end
+    -- Merge config: force use of user values where provided, fallback to defaults
+    M.state.config = vim.tbl_deep_extend("force", M.state.config, user_config or {})
 
     -- Register toggle keybindings
     for _, bind in ipairs(M.state.config.toggle) do
