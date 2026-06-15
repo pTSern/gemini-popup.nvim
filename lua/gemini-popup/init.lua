@@ -4,22 +4,23 @@ local M = {
         active_idx = 0,
         win = -1,
         config = {
+            flush_keybind = false,
             size = { horizontal = 0.8, vertical = 0.8 },
             toggle = { 
                 { 
                     key = "<Leader>gm", 
-                    mode = { 'n', 'v', 't' }, 
+                    mode = { 'n', 'v' },
                     desc = "Toggle [G]e[M]ini CLI popup",
                     buffer = {
-                        { key = "q", mode = { 'n', 'v' } }, -- Removed 't' to allow typing 'q'
-                        { key = "<Esc>", mode = { 't' }, command = [[<C-\><C-n>]] }, -- ESC in terminal goes to Normal mode
+                        { key = "q", mode = { 'n', 'v' } },
+                        { key = "<Esc>", mode = { 't' }, command = [[<C-\><C-n>]] },
                     }
                 } 
             },
             kill = { 
                 { 
                     key = "<Leader>gk", 
-                    mode = { "n", "v", "t" }, 
+                    mode = { "n", "v" }, 
                     desc = "[G]emini Popup will be [K]illed",
                     buffer = {
                         { key = "Q", mode = { 'n', 'v' } }
@@ -29,7 +30,7 @@ local M = {
             new = { 
                 { 
                     key = "<Leader>gn", 
-                    mode = { 'n', 'v', 't' }, 
+                    mode = { 'n', 'v' }, 
                     desc = "New Gemini Popup at path",
                     buffer = {
                         { key = "n", mode = { 'n', 'v' } }
@@ -39,7 +40,7 @@ local M = {
             next = { 
                 { 
                     key = "<Tab>k", 
-                    mode = { 'n', 'v', 't' }, 
+                    mode = { 'n', 'v' }, 
                     desc = "Next Gemini Popup",
                     buffer = {
                         { key = "<Tab>k", mode = { 'n', 'v' } }
@@ -49,7 +50,7 @@ local M = {
             prev = { 
                 { 
                     key = "<Tab>j", 
-                    mode = { 'n', 'v', 't' }, 
+                    mode = { 'n', 'v' }, 
                     desc = "Prev Gemini Popup",
                     buffer = {
                         { key = "<Tab>j", mode = { 'n', 'v' } }
@@ -283,6 +284,15 @@ function M.input_new_path()
 end
 
 function M.setup(user_config)
+    -- If flush_keybind is true in user_config, empty the default mappings first
+    if user_config and user_config.flush_keybind then
+        M.state.config.toggle = {}
+        M.state.config.kill = {}
+        M.state.config.new = {}
+        M.state.config.next = {}
+        M.state.config.prev = {}
+    end
+
     M.state.config = vim.tbl_deep_extend("force", M.state.config, user_config or {})
 
     local function register_global(binds, callback)
