@@ -11,8 +11,8 @@ local M = {
                     mode = { 'n', 'v', 't' }, 
                     desc = "Toggle [G]e[M]ini CLI popup",
                     buffer = {
-                        { key = "q", mode = { 'n', 'v', 't' } },
-                        { key = "<Esc>", mode = { 'i', 't' } },
+                        { key = "q", mode = { 'n', 'v' } }, -- Removed 't' to allow typing 'q'
+                        { key = "<Esc>", mode = { 't' }, command = [[<C-\><C-n>]] }, -- ESC in terminal goes to Normal mode
                     }
                 } 
             },
@@ -22,7 +22,7 @@ local M = {
                     mode = { "n", "v", "t" }, 
                     desc = "[G]emini Popup will be [K]illed",
                     buffer = {
-                        { key = "Q", mode = { 'n', 'v', 't' } }
+                        { key = "Q", mode = { 'n', 'v' } }
                     }
                 } 
             },
@@ -32,7 +32,7 @@ local M = {
                     mode = { 'n', 'v', 't' }, 
                     desc = "New Gemini Popup at path",
                     buffer = {
-                        { key = "n", mode = { 'n', 'v', 't' } }
+                        { key = "n", mode = { 'n', 'v' } }
                     }
                 } 
             },
@@ -42,7 +42,7 @@ local M = {
                     mode = { 'n', 'v', 't' }, 
                     desc = "Next Gemini Popup",
                     buffer = {
-                        { key = "<Tab>k", mode = { 'n', 'v', 't' } }
+                        { key = "<Tab>k", mode = { 'n', 'v' } }
                     }
                 } 
             },
@@ -52,7 +52,7 @@ local M = {
                     mode = { 'n', 'v', 't' }, 
                     desc = "Prev Gemini Popup",
                     buffer = {
-                        { key = "<Tab>j", mode = { 'n', 'v', 't' } }
+                        { key = "<Tab>j", mode = { 'n', 'v' } }
                     }
                 } 
             },
@@ -84,7 +84,8 @@ function M.apply_buffer_mappings(buf)
         for _, action_bind in ipairs(binds) do
             if action_bind.buffer then
                 for _, buf_bind in ipairs(action_bind.buffer) do
-                    vim.keymap.set(buf_bind.mode or { 'n' }, buf_bind.key, callback, { 
+                    local cmd = buf_bind.command or callback
+                    vim.keymap.set(buf_bind.mode or { 'n' }, buf_bind.key, cmd, { 
                         buffer = buf, 
                         desc = action_bind.desc, 
                         silent = true 
@@ -236,7 +237,6 @@ function M.input_new_path()
 
     if use_fzf then
         local temp_file = vim.fn.tempname()
-        -- Use fd if available for cleaner directory listing
         local list_cmd = vim.fn.executable("fd") == 1 and "fd --type d --hidden --exclude .git" or "find . -type d -not -path '*/.*'"
         local fzf_cmd = "fzf --height 100% --bind 'j:down,k:up,ctrl-j:down,ctrl-k:up' --header 'Enter: select | Esc: cancel' --print-query"
         
@@ -256,7 +256,6 @@ function M.input_new_path()
                 if vim.fn.filereadable(temp_file) == 1 then
                     local lines = vim.fn.readfile(temp_file)
                     if lines and #lines > 0 then
-                        -- lines[1] is query, lines[2] is selection (if any)
                         local query = lines[1]:gsub("\r", "")
                         local selection = lines[2] and lines[2]:gsub("\r", "") or ""
                         local final_path = (selection ~= "") and selection or query
@@ -268,7 +267,6 @@ function M.input_new_path()
             end
         })
     else
-        -- Simple input fallback
         vim.api.nvim_buf_set_keymap(buf, 'n', '<Esc>', '<cmd>q!<CR>', { noremap = true, silent = true })
         vim.api.nvim_buf_set_keymap(buf, 'i', '<Esc>', '<cmd>q!<CR>', { noremap = true, silent = true })
         vim.api.nvim_buf_set_keymap(buf, 'i', '<CR>', '', {
