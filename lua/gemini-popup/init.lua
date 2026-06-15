@@ -39,7 +39,7 @@ local M = {
             },
             next = { 
                 { 
-                    -- Removed global 'key' to avoid conflicts with BarBar
+                    -- No global key by default to avoid BarBar conflict
                     desc = "Next Gemini Popup",
                     buffer = {
                         { key = "<Tab>k", mode = { 'n', 'v', 't' } }
@@ -48,7 +48,7 @@ local M = {
             },
             prev = { 
                 { 
-                    -- Removed global 'key' to avoid conflicts with BarBar
+                    -- No global key by default to avoid BarBar conflict
                     desc = "Prev Gemini Popup",
                     buffer = {
                         { key = "<Tab>j", mode = { 'n', 'v', 't' } }
@@ -64,21 +64,38 @@ local function get_short_path(path)
     return vim.fn.fnamemodify(path, ":~:.")
 end
 
-function M.update_window_title()
+function M.update_window_ui()
     if not vim.api.nvim_win_is_valid(M.state.win) then return end
     local instance = M.state.instances[M.state.active_idx]
     if not instance then return end
 
     local short_path = get_short_path(instance.path)
+    
+    -- Detect current mode (like toggleterm)
+    local m = vim.api.nvim_get_mode().mode
+    local current_mode = " TERMINAL "
+    if m == 'n' or m == 'nt' then
+        current_mode = " NORMAL "
+    elseif m == 'i' or m == 't' then
+        current_mode = " INSERT "
+    elseif m:find('v') or m:find('V') or m == '' then
+        current_mode = " VISUAL "
+    end
+
     local title = string.format(" %s [%d/%d] ", short_path, M.state.active_idx, #M.state.instances)
+    local footer = string.format(" %s ", current_mode)
 
     pcall(vim.api.nvim_win_set_config, M.state.win, {
         title = title,
-        title_pos = "center"
+        title_pos = "center",
+        footer = footer,
+        footer_pos = "center"
     })
 end
 
 function M.apply_buffer_mappings(buf)
+    if not buf or not vim.api.nvim_buf_is_valid(buf) then return end
+    
     local function register_buf(binds, callback)
         for _, action_bind in ipairs(binds) do
             if action_bind.buffer then
@@ -119,6 +136,11 @@ function M.open_path(path)
         table.insert(M.state.instances, { buf = buf, path = absolute_path })
         M.state.active_idx = #M.state.instances
         
+        -- Mark as gemini popup buffer before termopen (just like toggleterm)
+        vim.b[buf].is_gemini_popup = true
+        
+        -- Mappings will be applied via the TermOpen autocmd if we want to be safe,
+        -- but we can also apply them here directly.
         M.apply_buffer_mappings(buf)
 
         vim.api.nvim_buf_call(buf, function()
@@ -160,7 +182,7 @@ function M.show_current()
         vim.api.nvim_win_set_buf(M.state.win, instance.buf)
     end
 
-    M.update_window_title()
+    M.update_window_ui()
     vim.cmd("startinsert")
 end
 
@@ -294,7 +316,7 @@ function M.setup(user_config)
 
     local function register_global(binds, callback)
         for _, bind in ipairs(binds) do
-            if bind.key then
+            if type(bind.key) == "string" and bind.key ~= "" then
                 vim.keymap.set(bind.mode or { 'n' }, bind.key, callback, { desc = bind.desc, silent = true })
             end
         end
@@ -309,6 +331,25 @@ function M.setup(user_config)
     vim.api.nvim_create_user_command("GeminiPopup", function(opts)
         M.open_path(opts.args)
     end, { nargs = "?" })
+
+    -- Auto-commands for terminal buffers (ToggleTerm pattern)
+    vim.api.nvim_create_autocmd("TermOpen", {
+        pattern = "term://*",
+        callback = function(ev)
+            if vim.b[ev.buf].is_gemini_popup then
+                M.apply_buffer_mappings(ev.buf)
+                M.update_window_ui()
+            end
+        end
+    })
+
+    vim.api.nvim_create_autocmd({"ModeChanged"}, {
+        callback = function()
+            if M.state.win ~= -1 and vim.api.nvim_win_is_valid(M.state.win) then
+                M.update_window_ui()
+            end
+        end
+    })
 end
 
 return M
