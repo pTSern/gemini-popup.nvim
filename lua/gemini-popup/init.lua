@@ -215,8 +215,9 @@ function M.kill_gemini_cli()
 end
 
 function M.input_new_path()
-    local width = 50
-    local height = 1
+    local use_fzf = vim.fn.executable("fzf") == 1
+    local width = use_fzf and math.floor(vim.o.columns * 0.7) or 50
+    local height = use_fzf and math.floor(vim.o.lines * 0.7) or 1
     local col = math.floor((vim.o.columns - width) / 2)
     local row = math.floor((vim.o.lines - height) / 2)
 
@@ -229,21 +230,56 @@ function M.input_new_path()
         row = row,
         style = "minimal",
         border = "rounded",
-        title = " Gemini Path ",
+        title = " Select Gemini Path ",
         title_pos = "center"
     })
 
-    vim.api.nvim_buf_set_keymap(buf, 'n', '<Esc>', '<cmd>q!<CR>', { noremap = true, silent = true })
-    vim.api.nvim_buf_set_keymap(buf, 'i', '<Esc>', '<cmd>q!<CR>', { noremap = true, silent = true })
-    
-    vim.api.nvim_buf_set_keymap(buf, 'i', '<CR>', '', {
-        callback = function()
-            local path = vim.api.nvim_get_current_line()
-            vim.api.nvim_win_close(win, true)
-            M.open_path(path)
-        end,
-        noremap = true, silent = true
-    })
+    if use_fzf then
+        local temp_file = vim.fn.tempname()
+        -- Use fd if available for cleaner directory listing
+        local list_cmd = vim.fn.executable("fd") == 1 and "fd --type d --hidden --exclude .git" or "find . -type d -not -path '*/.*'"
+        local fzf_cmd = "fzf --height 100% --bind 'j:down,k:up,ctrl-j:down,ctrl-k:up' --header 'Enter: select | Esc: cancel' --print-query"
+        
+        local cmd
+        if vim.fn.has("win32") == 1 then
+            cmd = string.format([[powershell -NoProfile -Command "%s | %s | Set-Content -Path '%s'"]], list_cmd, fzf_cmd, temp_file)
+        else
+            cmd = string.format([[ %s | %s > %s ]], list_cmd, fzf_cmd, temp_file)
+        end
+
+        vim.fn.termopen(cmd, {
+            on_exit = function()
+                if vim.api.nvim_win_is_valid(win) then
+                    vim.api.nvim_win_close(win, true)
+                end
+                
+                if vim.fn.filereadable(temp_file) == 1 then
+                    local lines = vim.fn.readfile(temp_file)
+                    if lines and #lines > 0 then
+                        -- lines[1] is query, lines[2] is selection (if any)
+                        local query = lines[1]:gsub("\r", "")
+                        local selection = lines[2] and lines[2]:gsub("\r", "") or ""
+                        local final_path = (selection ~= "") and selection or query
+                        if final_path == "" then final_path = "." end
+                        M.open_path(final_path)
+                    end
+                    os.remove(temp_file)
+                end
+            end
+        })
+    else
+        -- Simple input fallback
+        vim.api.nvim_buf_set_keymap(buf, 'n', '<Esc>', '<cmd>q!<CR>', { noremap = true, silent = true })
+        vim.api.nvim_buf_set_keymap(buf, 'i', '<Esc>', '<cmd>q!<CR>', { noremap = true, silent = true })
+        vim.api.nvim_buf_set_keymap(buf, 'i', '<CR>', '', {
+            callback = function()
+                local path = vim.api.nvim_get_current_line()
+                vim.api.nvim_win_close(win, true)
+                M.open_path(path)
+            end,
+            noremap = true, silent = true
+        })
+    end
 
     vim.cmd("startinsert")
 end
