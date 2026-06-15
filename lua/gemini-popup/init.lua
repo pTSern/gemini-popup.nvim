@@ -5,11 +5,57 @@ local M = {
         win = -1,
         config = {
             size = { horizontal = 0.8, vertical = 0.8 },
-            toggle = { { key = "<Leader>gm", mode = { 'n', 'v', 't' }, desc = "Toggle [G]e[M]ini CLI popup" } },
-            kill = { { key = "<Leader>gk", mode = { "n", "v", "t" }, desc = "[G]emini Popup will be [K]illed" } },
-            new = { { key = "<Leader>gn", mode = { 'n', 'v', 't' }, desc = "New Gemini Popup at path" } },
-            next = { { key = "<Tab>k", mode = { 'n', 'v', 't' }, desc = "Next Gemini Popup" } },
-            prev = { { key = "<Tab>j", mode = { 'n', 'v', 't' }, desc = "Prev Gemini Popup" } },
+            toggle = { 
+                { 
+                    key = "<Leader>gm", 
+                    mode = { 'n', 'v', 't' }, 
+                    desc = "Toggle [G]e[M]ini CLI popup",
+                    buffer = {
+                        { key = "q", mode = { 'n', 'v', 't' } },
+                        { key = "<Esc>", mode = { 'i', 't' } },
+                    }
+                } 
+            },
+            kill = { 
+                { 
+                    key = "<Leader>gk", 
+                    mode = { "n", "v", "t" }, 
+                    desc = "[G]emini Popup will be [K]illed",
+                    buffer = {
+                        { key = "Q", mode = { 'n', 'v', 't' } }
+                    }
+                } 
+            },
+            new = { 
+                { 
+                    key = "<Leader>gn", 
+                    mode = { 'n', 'v', 't' }, 
+                    desc = "New Gemini Popup at path",
+                    buffer = {
+                        { key = "n", mode = { 'n', 'v', 't' } }
+                    }
+                } 
+            },
+            next = { 
+                { 
+                    key = "<Tab>k", 
+                    mode = { 'n', 'v', 't' }, 
+                    desc = "Next Gemini Popup",
+                    buffer = {
+                        { key = "<Tab>k", mode = { 'n', 'v', 't' } }
+                    }
+                } 
+            },
+            prev = { 
+                { 
+                    key = "<Tab>j", 
+                    mode = { 'n', 'v', 't' }, 
+                    desc = "Prev Gemini Popup",
+                    buffer = {
+                        { key = "<Tab>j", mode = { 'n', 'v', 't' } }
+                    }
+                } 
+            },
         }
     }
 }
@@ -27,11 +73,32 @@ function M.update_window_title()
     local short_path = get_short_path(instance.path)
     local title = string.format(" %s [%d/%d] ", short_path, M.state.active_idx, #M.state.instances)
 
-    -- Note: Window title support requires Neovim 0.9+
     pcall(vim.api.nvim_win_set_config, M.state.win, {
         title = title,
         title_pos = "center"
     })
+end
+
+function M.apply_buffer_mappings(buf)
+    local function register_buf(binds, callback)
+        for _, action_bind in ipairs(binds) do
+            if action_bind.buffer then
+                for _, buf_bind in ipairs(action_bind.buffer) do
+                    vim.keymap.set(buf_bind.mode or { 'n' }, buf_bind.key, callback, { 
+                        buffer = buf, 
+                        desc = action_bind.desc, 
+                        silent = true 
+                    })
+                end
+            end
+        end
+    end
+
+    register_buf(M.state.config.toggle, M.toggle_gemini_cli)
+    register_buf(M.state.config.kill, M.kill_gemini_cli)
+    register_buf(M.state.config.new, M.input_new_path)
+    register_buf(M.state.config.next, function() M.navigate(1) end)
+    register_buf(M.state.config.prev, function() M.navigate(-1) end)
 end
 
 function M.open_path(path)
@@ -39,7 +106,6 @@ function M.open_path(path)
     if path == "" then path = "." end
     local absolute_path = vim.fn.fnamemodify(path, ":p")
 
-    -- Check if instance already exists
     local found_idx = -1
     for i, inst in ipairs(M.state.instances) do
         if inst.path == absolute_path then
@@ -49,12 +115,12 @@ function M.open_path(path)
     end
 
     if found_idx == -1 then
-        -- Create new instance
         local buf = vim.api.nvim_create_buf(false, true)
         table.insert(M.state.instances, { buf = buf, path = absolute_path })
         M.state.active_idx = #M.state.instances
         
-        -- Start terminal
+        M.apply_buffer_mappings(buf)
+
         vim.api.nvim_buf_call(buf, function()
             vim.fn.termopen(string.format("cd %s && gemini", vim.fn.shellescape(absolute_path)))
         end)
@@ -69,7 +135,6 @@ function M.show_current()
     local instance = M.state.instances[M.state.active_idx]
     if not instance then return end
 
-    -- Close old window if invalid
     if M.state.win ~= -1 and not vim.api.nvim_win_is_valid(M.state.win) then
         M.state.win = -1
     end
@@ -186,17 +251,17 @@ end
 function M.setup(user_config)
     M.state.config = vim.tbl_deep_extend("force", M.state.config, user_config or {})
 
-    local function register(binds, callback)
+    local function register_global(binds, callback)
         for _, bind in ipairs(binds) do
             vim.keymap.set(bind.mode or { 'n' }, bind.key, callback, { desc = bind.desc, silent = true })
         end
     end
 
-    register(M.state.config.toggle, M.toggle_gemini_cli)
-    register(M.state.config.kill, M.kill_gemini_cli)
-    register(M.state.config.new, M.input_new_path)
-    register(M.state.config.next, function() M.navigate(1) end)
-    register(M.state.config.prev, function() M.navigate(-1) end)
+    register_global(M.state.config.toggle, M.toggle_gemini_cli)
+    register_global(M.state.config.kill, M.kill_gemini_cli)
+    register_global(M.state.config.new, M.input_new_path)
+    register_global(M.state.config.next, function() M.navigate(1) end)
+    register_global(M.state.config.prev, function() M.navigate(-1) end)
 
     vim.api.nvim_create_user_command("GeminiPopup", function(opts)
         M.open_path(opts.args)
