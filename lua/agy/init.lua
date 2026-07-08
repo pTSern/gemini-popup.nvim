@@ -8,9 +8,9 @@ local M = {
             size = { horizontal = 0.8, vertical = 0.8 },
             toggle = { 
                 { 
-                    key = "<Leader>gm", 
+                    key = "<Leader>am", 
                     mode = { 'n', 'v' },
-                    desc = "Toggle [G]e[M]ini CLI popup",
+                    desc = "Toggle [A]nti[g]ravit[y] ([a]g[y]) CLI popup",
                     buffer = {
                         { key = "q", mode = { 'n', 'v' } },
                         { key = "<Esc>", mode = { 't' }, command = [[<C-\><C-n>]] },
@@ -19,9 +19,9 @@ local M = {
             },
             kill = { 
                 { 
-                    key = "<Leader>gk", 
+                    key = "<Leader>ak", 
                     mode = { "n", "v" }, 
-                    desc = "[G]emini Popup will be [K]illed",
+                    desc = "[A]ntigravity ([a]g[y]) Popup will be [K]illed",
                     buffer = {
                         { key = "Q", mode = { 'n', 'v' } }
                     }
@@ -29,9 +29,9 @@ local M = {
             },
             new = { 
                 { 
-                    key = "<Leader>gn", 
+                    key = "<Leader>an", 
                     mode = { 'n', 'v' }, 
-                    desc = "New Gemini Popup at path",
+                    desc = "New Antigravity (agy) Popup at path",
                     buffer = {
                         { key = "n", mode = { 'n', 'v' } }
                     }
@@ -40,7 +40,7 @@ local M = {
             next = { 
                 { 
                     -- No global key by default to avoid BarBar conflict
-                    desc = "Next Gemini Popup",
+                    desc = "Next Antigravity (agy) Popup",
                     buffer = {
                         { key = "<Tab>k", mode = { 'n', 'v', 't' } }
                     }
@@ -49,7 +49,7 @@ local M = {
             prev = { 
                 { 
                     -- No global key by default to avoid BarBar conflict
-                    desc = "Prev Gemini Popup",
+                    desc = "Prev Antigravity (agy) Popup",
                     buffer = {
                         { key = "<Tab>j", mode = { 'n', 'v', 't' } }
                     }
@@ -111,8 +111,8 @@ function M.apply_buffer_mappings(buf)
         end
     end
 
-    register_buf(M.state.config.toggle, M.toggle_gemini_cli)
-    register_buf(M.state.config.kill, M.kill_gemini_cli)
+    register_buf(M.state.config.toggle, M.toggle_agy_cli)
+    register_buf(M.state.config.kill, M.kill_agy_cli)
     register_buf(M.state.config.new, M.input_new_path)
     register_buf(M.state.config.next, function() M.navigate(1) end)
     register_buf(M.state.config.prev, function() M.navigate(-1) end)
@@ -136,15 +136,15 @@ function M.open_path(path)
         table.insert(M.state.instances, { buf = buf, path = absolute_path })
         M.state.active_idx = #M.state.instances
         
-        -- Mark as gemini popup buffer before termopen (just like toggleterm)
-        vim.b[buf].is_gemini_popup = true
+        -- Mark as agy popup buffer before termopen (just like toggleterm)
+        vim.b[buf].is_agy_popup = true
         
         -- Mappings will be applied via the TermOpen autocmd if we want to be safe,
         -- but we can also apply them here directly.
         M.apply_buffer_mappings(buf)
 
         vim.api.nvim_buf_call(buf, function()
-            vim.fn.termopen(string.format("cd %s && gemini", vim.fn.shellescape(absolute_path)))
+            vim.fn.termopen(string.format("cd %s && agy", vim.fn.shellescape(absolute_path)))
         end)
     else
         M.state.active_idx = found_idx
@@ -186,7 +186,7 @@ function M.show_current()
     vim.cmd("startinsert")
 end
 
-function M.toggle_gemini_cli()
+function M.toggle_agy_cli()
     if vim.api.nvim_win_is_valid(M.state.win) then
         vim.api.nvim_win_close(M.state.win, true)
         M.state.win = -1
@@ -214,7 +214,7 @@ function M.navigate(delta)
     M.show_current()
 end
 
-function M.kill_gemini_cli()
+function M.kill_agy_cli()
     if vim.api.nvim_win_is_valid(M.state.win) then
         vim.api.nvim_win_close(M.state.win, true)
         M.state.win = -1
@@ -252,7 +252,7 @@ function M.input_new_path()
         row = row,
         style = "minimal",
         border = "rounded",
-        title = " Select Gemini Path ",
+        title = " Select Antigravity (agy) Path ",
         title_pos = "center"
     })
 
@@ -322,13 +322,13 @@ function M.setup(user_config)
         end
     end
 
-    register_global(M.state.config.toggle, M.toggle_gemini_cli)
-    register_global(M.state.config.kill, M.kill_gemini_cli)
+    register_global(M.state.config.toggle, M.toggle_agy_cli)
+    register_global(M.state.config.kill, M.kill_agy_cli)
     register_global(M.state.config.new, M.input_new_path)
     register_global(M.state.config.next, function() M.navigate(1) end)
     register_global(M.state.config.prev, function() M.navigate(-1) end)
 
-    vim.api.nvim_create_user_command("GeminiPopup", function(opts)
+    vim.api.nvim_create_user_command("AgyPopup", function(opts)
         M.open_path(opts.args)
     end, { nargs = "?" })
 
@@ -336,7 +336,7 @@ function M.setup(user_config)
     vim.api.nvim_create_autocmd("TermOpen", {
         pattern = "term://*",
         callback = function(ev)
-            if vim.b[ev.buf].is_gemini_popup then
+            if vim.b[ev.buf].is_agy_popup then
                 M.apply_buffer_mappings(ev.buf)
                 M.update_window_ui()
             end
